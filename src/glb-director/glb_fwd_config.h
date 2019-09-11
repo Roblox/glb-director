@@ -83,8 +83,8 @@ struct glb_fwd_config_content_table_bind {
 } __attribute__((__packed__));
 
 struct glb_fwd_config_content_table_entry {
-	uint32_t primary;
-	uint32_t secondary;
+    uint32_t num_idxs;
+    uint32_t idxs[GLB_FMT_MAX_NUM_BACKENDS];
 } __attribute__((__packed__));
 
 struct glb_fwd_config_content_table {

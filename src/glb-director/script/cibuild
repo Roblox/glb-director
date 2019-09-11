@@ -39,8 +39,11 @@ cd $ROOTDIR
 make clean
 make -C cli clean
 
+make -C ftctl clean
+
 make
 make -C cli
+make -C ftctl
 
 ./cli/glb-director-cli build-config packaging/forwarding_table.json packaging/forwarding_table.bin
 
@@ -55,6 +58,7 @@ fpm -f -s dir -t deb \
 	--config-files /etc \
 	build/app/glb-director=/usr/sbin/ \
 	cli/glb-director-cli=/usr/sbin/ \
+	ftctl/glb-ftctl=/usr/sbin/ \
 	cli/glb-config-check=/usr/sbin/ \
 	packaging/director.conf=/etc/glb/ \
 	packaging/forwarding_table.bin=/etc/glb/ \

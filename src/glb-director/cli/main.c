@@ -37,6 +37,7 @@
 #include <string.h>
 
 #include "log.h"
+#include "config_types.h"
 
 #define GLB_BACKEND_HEALTH_DOWN 0
 #define GLB_BACKEND_HEALTH_UP 1
@@ -56,53 +57,6 @@
 int siphash(uint8_t *out, const uint8_t *in, uint64_t inlen, const uint8_t *k);
 
 #pragma pack(1)
-
-typedef struct {
-	uint32_t file_fmt_ver;
-	uint32_t num_tables;
-	uint32_t table_entries;
-	uint32_t max_num_backends;
-	uint32_t max_num_binds;
-} bin_file_header;
-
-typedef struct {
-	uint32_t inet_family;
-
-	union {
-		char v6[16];
-		struct {
-			uint32_t v4;
-			char reserved[12];
-		};
-	} ip;
-
-	uint16_t state;
-	uint16_t health;
-} backend_entry;
-
-typedef struct {
-	uint32_t inet_family;
-
-	union {
-		char v6[16];
-		struct {
-			uint32_t v4;
-			char _[12];
-		};
-	} ip;
-
-	uint16_t ip_bits;
-
-	uint16_t port_start;
-	uint16_t port_end;
-	uint8_t ipproto;
-	uint8_t reserved;
-} bind_entry;
-
-typedef struct {
-	uint32_t primary_idx;
-	uint32_t secondary_idx;
-} table_entry;
 
 typedef struct {
 	uint32_t index;
@@ -139,7 +93,7 @@ void decodehex(char *dst, const char *src, int dst_len)
 
 int main(int argc, char *argv[])
 {
-	size_t i, b;
+    size_t i, a, b, c; /* index for walking */
 
 	if (argc != 4 || strcmp(argv[1], "build-config") != 0) {
 		usage();
@@ -175,17 +129,20 @@ int main(int argc, char *argv[])
 	    .file_fmt_ver = 2,
 	    .num_tables = json_array_size(tables),
 	    .table_entries = 0x10000,
-	    .max_num_backends = 0x100,
+	    .max_num_backends = MAX_NUM_BACKENDS,
 	    .max_num_binds = 0x100,
 	};
 	fwrite(&hdr, sizeof(bin_file_header), 1, out);
 
 	size_t index;
 	json_t *table;
-
+	unsigned char draining = 0;
+	
 	sortable_backend sortable_backends[hdr.max_num_backends];
 	int num_available_backends = 0;
-
+	unsigned int num_healthy_not_draining_backends = 0;
+	unsigned int num_healthy_draining = 0;
+	
 	json_array_foreach(tables, index, table)
 	{
 		/* write out the backends */
@@ -251,7 +208,9 @@ int main(int argc, char *argv[])
 					glb_log_error_and_exit(
 					    "Malformed backend IP");
 				}
-
+				
+				draining = 0;
+				
 				if (!strcmp(backend_state, "active")) {
 					entry->state = GLB_BACKEND_STATE_ACTIVE;
 				} else if (!strcmp(backend_state, "filling")) {
@@ -260,6 +219,7 @@ int main(int argc, char *argv[])
 				} else if (!strcmp(backend_state, "draining")) {
 					entry->state =
 					    GLB_BACKEND_STATE_DRAINING_INACTIVE;
+					draining = 1;
 				} else if (!strcmp(backend_state, "inactive")) {
 					entry->state =
 					    GLB_BACKEND_STATE_DRAINING_INACTIVE;
@@ -282,6 +242,12 @@ int main(int argc, char *argv[])
 					    [num_available_backends]
 						.index = i;
 					num_available_backends++;
+				}
+				if (backend_healthy) {
+				  if (draining)
+					num_healthy_draining ++;
+				  else
+					num_healthy_not_draining_backends ++;
 				}
 			}
 		}
@@ -446,10 +412,13 @@ int main(int argc, char *argv[])
 		char seed[16];
 		decodehex(seed, seed_hex, 16);
 		uint32_t ui;
+		table_entry tentry;
 
+		bzero(&tentry, sizeof(tentry));
+		tentry.num_idxs = num_available_backends;
+		
 		/* write out the pre-computed rendezvous hash entries */
 		for (ui = 0; ui < hdr.table_entries; ui++) {
-			table_entry entry = {0, 0};
 
 			uint32_t i_be = htonl(ui);
 			struct {
@@ -492,28 +461,45 @@ int main(int argc, char *argv[])
 			qsort(sortable_backends, num_available_backends,
 			      sizeof(sortable_backend), sortable_backend_cmp);
 
-			// if the primary is draining or unhealthy and the
-			// secondary is up, swap primary/secondary
-			backend_entry *primary_backend =
-			    &out_backends[sortable_backends[0].index];
-			backend_entry *secondary_backend =
-			    &out_backends[sortable_backends[1].index];
-			int primary_bad =
-			    (primary_backend->state ==
-				 GLB_BACKEND_STATE_DRAINING_INACTIVE ||
-			     primary_backend->health != GLB_BACKEND_HEALTH_UP);
+			bzero(&tentry, sizeof(tentry));
+			tentry.num_idxs = num_available_backends;
 
-			int first_idx = 0;
-			if (primary_bad &&
-			    secondary_backend->state == GLB_BACKEND_HEALTH_UP) {
-				first_idx = 1;
+			a = 0;
+			b = num_healthy_not_draining_backends;
+			c = num_healthy_not_draining_backends + num_healthy_draining;
+			
+			for (i = 0; i < num_available_backends; i++) {
+			    backend_entry *bentry;
+
+				bentry = &out_backends[sortable_backends[i].index];
+
+				/*
+				 * store the l7 servers in the following order :
+				 *    "healthy and active": index tracked by a
+				 *    "healthy but draining": index tracked by b
+				 *    "unhealthy"/"inactive": index tracked by c
+				 *         QUESTION: can "inactive" be "healthy": IOW can 
+				 *                   health-check be run on these & pass?
+				 */
+				if (bentry->health == GLB_BACKEND_HEALTH_UP) {
+				    if (bentry->state == GLB_BACKEND_STATE_DRAINING_INACTIVE) {
+				        /* healthy&draining */
+				        tentry.idxs[b] = sortable_backends[i].index;
+						b++;
+					} else { 
+  					    /* 
+						 * active or filling. "Inactive" don't make it into 
+						 * sortable_backends 
+						 */
+					    tentry.idxs[a] = sortable_backends[i].index;
+						a++;
+					}
+				} else { /* unhealthy */
+				    tentry.idxs[c] = sortable_backends[i].index;
+					c++;
+				}
 			}
-
-			entry.primary_idx = sortable_backends[first_idx].index;
-			entry.secondary_idx =
-			    sortable_backends[1 - first_idx].index;
-
-			fwrite(&entry, sizeof(table_entry), 1, out);
+			fwrite(&tentry, sizeof(table_entry), 1, out);
 		}
 	}
 
