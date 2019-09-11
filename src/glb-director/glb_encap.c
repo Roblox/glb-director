@@ -299,11 +299,7 @@ static int glb_add_packet_route(struct glb_fwd_config_content_table *table, glb_
 	// Match packets onto the via (first hop) and alt (second hop)
 	uint64_t hash_idx = pkt_hash & GLB_FMT_TABLE_HASHMASK;
 	struct glb_fwd_config_content_table_entry *table_entry = &table->entries[hash_idx];
-	uint32_t primary_idx = table_entry->primary;
-	uint32_t secondary_idx = table_entry->secondary;
-	struct glb_fwd_config_content_table_backend *primary = &table->backends[primary_idx];
-	struct glb_fwd_config_content_table_backend *secondary = &table->backends[secondary_idx];
-
+	
 	// include both hops as viable servers, in order.
 	if (unlikely(route_context->hop_count + 2 > MAX_HOPS)) {
 		return -1;
@@ -314,9 +310,14 @@ static int glb_add_packet_route(struct glb_fwd_config_content_table *table, glb_
 		route_context->pkt_hash = pkt_hash;
 	}
 
-	route_context->ipv4_hops[route_context->hop_count] = primary->ipv4_addr;
-	route_context->ipv4_hops[route_context->hop_count + 1] = secondary->ipv4_addr;
-	route_context->hop_count += 2;
+	uint32_t i = 0;
+
+	while (i < table_entry->num_idxs) {
+	    route_context->ipv4_hops[route_context->hop_count] = \
+		  table->backends[i].ipv4_addr;
+	    route_context->hop_count ++;
+		i++;
+	}
 
 	return 0;
 }

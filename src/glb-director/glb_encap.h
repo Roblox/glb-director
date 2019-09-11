@@ -78,7 +78,7 @@ struct l4_ports_hdr {
 	sizeof(uint16_t) \
 )
 
-#define MAX_HOPS 4
+#define MAX_HOPS 255
 
 typedef struct {
 	// aiding simple header extraction by maintaining state
