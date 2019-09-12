@@ -126,11 +126,11 @@ int main(int argc, char *argv[])
 	fwrite("GLBD", 4, 1, out);
 
 	bin_file_header hdr = {
-	    .file_fmt_ver = 2,
+	    .file_fmt_ver = FILE_FORMAT_VERSION,
 	    .num_tables = json_array_size(tables),
-	    .table_entries = 0x10000,
+	    .table_entries = MAX_TABLE_ENTRIES,
 	    .max_num_backends = MAX_NUM_BACKENDS,
-	    .max_num_binds = 0x100,
+	    .max_num_binds = MAX_NUM_BINDS,
 	};
 	fwrite(&hdr, sizeof(bin_file_header), 1, out);
 
@@ -461,9 +461,6 @@ int main(int argc, char *argv[])
 			qsort(sortable_backends, num_available_backends,
 			      sizeof(sortable_backend), sortable_backend_cmp);
 
-			bzero(&tentry, sizeof(tentry));
-			tentry.num_idxs = num_available_backends;
-
 			a = 0;
 			b = num_healthy_not_draining_backends;
 			c = num_healthy_not_draining_backends + num_healthy_draining;
@@ -499,7 +496,8 @@ int main(int argc, char *argv[])
 					c++;
 				}
 			}
-			fwrite(&tentry, sizeof(table_entry), 1, out);
+			fwrite(&tentry.num_idxs, sizeof(uint32_t), 1, out);
+			fwrite(tentry.idxs, sizeof(uint32_t), num_available_backends, out);
 		}
 	}
 

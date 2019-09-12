@@ -2,7 +2,10 @@
 
 #define __CONFIG_TYPES_H__
 
+#define FILE_FORMAT_VERSION 3
+#define MAX_TABLE_ENTRIES 0x10000
 #define MAX_NUM_BACKENDS 0x100
+#define MAX_NUM_BINDS 0x100
 
 typedef struct {
 	uint32_t file_fmt_ver;

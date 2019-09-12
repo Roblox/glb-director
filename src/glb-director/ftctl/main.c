@@ -159,25 +159,31 @@ int main(int argc, char **argv)
     
     
     /* Deal with the rendezvous hash-table */
-    tablep = (table_entry *)malloc(bfh->table_entries * sizeof(table_entry));
+	tablep = (table_entry *)malloc(sizeof(table_entry));
     if (!tablep) {
-        return 0;
-    }
-    ret = fread(tablep, sizeof(table_entry), bfh->table_entries, in);
-    if (!glb_fread_ret_check(ret, bfh->table_entries, FALSE)) {
         return 0;
     }
     
     for (i = 0; i < bfh->table_entries; i++) {
         int j = 0;
-        int num_idxs;
+		uint32_t num_idxs;
 
-        num_idxs = tablep->num_idxs;
-        printf("\n");
-        for (j = 0; j < num_idxs; j++) {
-            printf(" \t\t  index= %x %s", tablep[i].idxs[j],
-                   inet_ntop(AF_INET,
-							 (const void *)&backendp[tablep[i].idxs[j]].ip, ip,
+		/* Read the # of idxs in this row */
+		ret = fread(&num_idxs, sizeof(num_idxs), 1, in);
+		if (!glb_fread_ret_check(ret, 1, TRUE)) {
+		    return 0;
+		}
+
+		ret = fread(tablep->idxs, num_idxs*sizeof(uint32_t), 1, in);
+		if (!glb_fread_ret_check(ret, 1, TRUE)) {
+		    return 0;
+		}
+ 
+ 		printf("\n");
+ 		for (j = 0; j < num_idxs; j++) {
+		    printf(" \t\t  index= %x %s", tablep->idxs[j],
+ 				   inet_ntop(AF_INET,
+							 (const void *)&backendp[tablep->idxs[j]].ip, ip,
 							 INET_ADDRSTRLEN));
 		}
 	}
