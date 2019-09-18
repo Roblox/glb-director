@@ -5,6 +5,7 @@
 #define FILE_FORMAT_VERSION 3
 #define MAX_TABLE_ENTRIES 0x10000
 #define MAX_NUM_BACKENDS 0x100
+#define MAX_NUM_BACKEND_IDXS 0x10
 #define MAX_NUM_BINDS 0x100
 
 typedef struct {
@@ -50,16 +51,9 @@ typedef struct {
 	uint8_t reserved;
 } bind_entry;
 
-#if 0
-typedef struct {
-	uint32_t primary_idx;
-	uint32_t secondary_idx;
-} table_entry;
-#endif
-
 struct table_entry_ {
     uint32_t num_idxs;    
-    uint32_t idxs[MAX_NUM_BACKENDS];
+    uint32_t idxs[MAX_NUM_BACKEND_IDXS];
 } __attribute__((__packed__));
 typedef struct table_entry_ table_entry;
 

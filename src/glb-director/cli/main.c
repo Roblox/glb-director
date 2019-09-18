@@ -54,6 +54,9 @@
 #define GLB_IPPROTO_UDP 17
 #define GLB_IPPROTO_TCP 6
 
+#define NUM_IDXS_FOR_USE(n) ((n <= MAX_NUM_BACKEND_IDXS) ? \
+                             n : MAX_NUM_BACKEND_IDXS)
+
 int siphash(uint8_t *out, const uint8_t *in, uint64_t inlen, const uint8_t *k);
 
 #pragma pack(1)
@@ -136,11 +139,10 @@ int main(int argc, char *argv[])
 
 	size_t index;
 	json_t *table;
-	unsigned char draining = 0;
 	
 	sortable_backend sortable_backends[hdr.max_num_backends];
 	int num_available_backends = 0;
-	unsigned int num_healthy_not_draining_backends = 0;
+	unsigned int num_healthy_not_draining = 0;
 	unsigned int num_healthy_draining = 0;
 	
 	json_array_foreach(tables, index, table)
@@ -209,8 +211,6 @@ int main(int argc, char *argv[])
 					    "Malformed backend IP");
 				}
 				
-				draining = 0;
-				
 				if (!strcmp(backend_state, "active")) {
 					entry->state = GLB_BACKEND_STATE_ACTIVE;
 				} else if (!strcmp(backend_state, "filling")) {
@@ -219,7 +219,6 @@ int main(int argc, char *argv[])
 				} else if (!strcmp(backend_state, "draining")) {
 					entry->state =
 					    GLB_BACKEND_STATE_DRAINING_INACTIVE;
-					draining = 1;
 				} else if (!strcmp(backend_state, "inactive")) {
 					entry->state =
 					    GLB_BACKEND_STATE_DRAINING_INACTIVE;
@@ -243,13 +242,7 @@ int main(int argc, char *argv[])
 						.index = i;
 					num_available_backends++;
 				}
-				if (backend_healthy) {
-				  if (draining)
-					num_healthy_draining ++;
-				  else
-					num_healthy_not_draining_backends ++;
-				}
-			}
+			} 
 		}
 
 		fwrite(&out_backends[0], sizeof(backend_entry),
@@ -415,7 +408,7 @@ int main(int argc, char *argv[])
 		table_entry tentry;
 
 		bzero(&tentry, sizeof(tentry));
-		tentry.num_idxs = num_available_backends;
+		tentry.num_idxs = NUM_IDXS_FOR_USE(num_available_backends);
 		
 		/* write out the pre-computed rendezvous hash entries */
 		for (ui = 0; ui < hdr.table_entries; ui++) {
@@ -461,45 +454,63 @@ int main(int argc, char *argv[])
 			qsort(sortable_backends, num_available_backends,
 			      sizeof(sortable_backend), sortable_backend_cmp);
 
-			a = 0;
-			b = num_healthy_not_draining_backends;
-			c = num_healthy_not_draining_backends + num_healthy_draining;
-			
-			for (i = 0; i < num_available_backends; i++) {
-			    backend_entry *bentry;
+            num_healthy_draining = 0;
+            num_healthy_not_draining = 0;
+            for (i = 0; i < NUM_IDXS_FOR_USE(num_available_backends); i++) {
+                backend_entry *bentry;
 
-				bentry = &out_backends[sortable_backends[i].index];
+                bentry = &out_backends[sortable_backends[i].index];
+                
+                if (bentry->health == GLB_BACKEND_HEALTH_UP) {//backend_healthy
+                    // draining
+                    if (bentry->state == GLB_BACKEND_STATE_DRAINING_INACTIVE)
+                        num_healthy_draining ++;
+                    else
+                        num_healthy_not_draining ++;
+                }
+            }
 
-				/*
-				 * store the l7 servers in the following order :
-				 *    "healthy and active": index tracked by a
-				 *    "healthy but draining": index tracked by b
-				 *    "unhealthy"/"inactive": index tracked by c
-				 *         QUESTION: can "inactive" be "healthy": IOW can 
-				 *                   health-check be run on these & pass?
-				 */
-				if (bentry->health == GLB_BACKEND_HEALTH_UP) {
-				    if (bentry->state == GLB_BACKEND_STATE_DRAINING_INACTIVE) {
-				        /* healthy&draining */
-				        tentry.idxs[b] = sortable_backends[i].index;
-						b++;
-					} else { 
-  					    /* 
-						 * active or filling. "Inactive" don't make it into 
-						 * sortable_backends 
-						 */
-					    tentry.idxs[a] = sortable_backends[i].index;
-						a++;
-					}
-				} else { /* unhealthy */
-				    tentry.idxs[c] = sortable_backends[i].index;
-					c++;
-				}
-			}
-			fwrite(&tentry.num_idxs, sizeof(uint32_t), 1, out);
-			fwrite(tentry.idxs, sizeof(uint32_t), num_available_backends, out);
-		}
-	}
+            a = 0;
+            b = num_healthy_not_draining;
+            c = num_healthy_not_draining + num_healthy_draining;
+            
+            for (i = 0; i < NUM_IDXS_FOR_USE(num_available_backends); i++) {
+                backend_entry *bentry;
+
+                bentry = &out_backends[sortable_backends[i].index];
+
+                /*
+                 * store the l7 servers in the following order :
+                 *    "healthy and active": index tracked by a
+                 *    "healthy but draining": index tracked by b
+                 *    "unhealthy"": index tracked by c
+                 */
+                if (bentry->health == GLB_BACKEND_HEALTH_UP) {
+                    if (bentry->state == GLB_BACKEND_STATE_DRAINING_INACTIVE) {
+                        /* healthy&draining */
+                        tentry.idxs[b] = sortable_backends[i].index;
+                        b++;
+                    } else { 
+                        /* 
+                         * active or filling. "Inactive" don't make it into 
+                         * sortable_backends 
+                         */
+                        tentry.idxs[a] = sortable_backends[i].index;
+                        a++;
+                    }
+                } else { /* unhealthy */
+                    tentry.idxs[c] = sortable_backends[i].index;
+                    c++;
+                }
+            }
+            fwrite(&tentry.num_idxs, sizeof(uint32_t), 1, out);
+            /* 
+             * following will ensure that the forwarding table binary will be
+             * of a fixed size
+             */
+            fwrite(tentry.idxs, sizeof(uint32_t), MAX_NUM_BACKEND_IDXS, out);
+        }
+    }
 
 	fclose(out);
 
