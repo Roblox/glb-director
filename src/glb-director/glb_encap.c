@@ -314,7 +314,7 @@ static int glb_add_packet_route(struct glb_fwd_config_content_table *table, glb_
 
 	while (i < table_entry->num_idxs) {
 	    route_context->ipv4_hops[route_context->hop_count] = \
-		  table->backends[i].ipv4_addr;
+		  table->backends[table_entry->idxs[i]].ipv4_addr;
 	    route_context->hop_count ++;
 		i++;
 	}
