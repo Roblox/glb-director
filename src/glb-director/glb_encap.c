@@ -41,6 +41,7 @@
 
 #include "config.h"
 #include "glb_director_config.h"
+#include "../glb-includes/glb_common_includes.h"
 #include "glb_encap.h"
 #include "glb_fwd_config.h"
 #include "log.h"
@@ -250,8 +251,10 @@ static int extract_packet_fields(glb_route_context *route_context)
 	}
 }
 
-/* Adds 2 hops for the given route context, based on the hash configuration provided.
- * There must be at least 2 free slots in the hop list.
+/* 
+ * Adds upto GLB_MAX_GUE_HOPS hops for the given route context, based on the 
+ * hash configuration provided.
+ * 
  */
 static int glb_add_packet_route(struct glb_fwd_config_content_table *table, glb_route_context *route_context, glb_director_hash_fields *hash_field_cfg)
 {
@@ -296,15 +299,10 @@ static int glb_add_packet_route(struct glb_fwd_config_content_table *table, glb_
 	uint64_t pkt_hash = 0;
 	siphash((uint8_t *)&pkt_hash, hash_buf, hash_len, table->secure_key);
 
-	// Match packets onto the via (first hop) and alt (second hop)
+	// Match packets onto the via (first hop) and alts (subsequent hops)
 	uint64_t hash_idx = pkt_hash & GLB_FMT_TABLE_HASHMASK;
 	struct glb_fwd_config_content_table_entry *table_entry = &table->entries[hash_idx];
 	
-	// include both hops as viable servers, in order.
-	if (unlikely(route_context->hop_count + 2 > MAX_HOPS)) {
-		return -1;
-	}
-
 	if (likely(route_context->hop_count == 0)) {
 		// use the first calculated route as the hash for rx queue hinting/etc
 		route_context->pkt_hash = pkt_hash;
@@ -312,12 +310,12 @@ static int glb_add_packet_route(struct glb_fwd_config_content_table *table, glb_
 
 	uint32_t i = 0;
 
-	while (i < table_entry->num_idxs) {
-	    route_context->ipv4_hops[route_context->hop_count] = \
-		  table->backends[table_entry->idxs[i]].ipv4_addr;
-	    route_context->hop_count ++;
-		i++;
-	}
+    while (i < table_entry->num_idxs) {
+        route_context->ipv4_hops[route_context->hop_count] = \
+          table->backends[table_entry->idxs[i]].ipv4_addr;
+        route_context->hop_count ++;
+        i++;
+    }
 
 	return 0;
 }

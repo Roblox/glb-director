@@ -36,7 +36,6 @@
 #define GLB_FMT_TABLE_HASHMASK 0xffff
 #define GLB_FMT_MAX_NUM_BACKENDS 0x100
 #define GLB_FMT_MAX_NUM_BINDS 0x100
-#define GLB_FMT_MAX_NUM_BACKEND_IDXS 0x10
 
 #define GLB_FMT_SECURE_KEY_BYTES 16
 
@@ -85,7 +84,7 @@ struct glb_fwd_config_content_table_bind {
 
 struct glb_fwd_config_content_table_entry {
     uint32_t num_idxs;
-    uint32_t idxs[GLB_FMT_MAX_NUM_BACKEND_IDXS];
+    uint32_t idxs[GLB_MAX_GUE_HOPS];
 } __attribute__((__packed__));
 
 struct glb_fwd_config_content_table {

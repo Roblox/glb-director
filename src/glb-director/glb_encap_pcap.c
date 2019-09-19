@@ -35,6 +35,7 @@
 
 #include "config.h"
 #include "glb_director_config.h"
+#include "../glb-includes/glb_common_includes.h"
 #include "glb_encap.h"
 #include "glb_encap_pcap.h"
 #include "glb_fwd_config.h"

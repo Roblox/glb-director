@@ -39,10 +39,10 @@
 #include <net/inet6_hashtables.h>
 #include <net/net_namespace.h>
 #include "ipt_glbredirect.h"
+#include "../glb-includes/glb_common_includes.h"
 
 // #define DEBUG
 
-#define MAX_HOPS 256
 #define PROCFS_NAME "glb_redirect_stats"
 
 #ifdef DEBUG
@@ -69,7 +69,7 @@ struct glbgue_chained_routing {
 	uint16_t private_data_type;
 	uint8_t next_hop;
 	uint8_t hop_count;
-	__be32 hops[MAX_HOPS];
+	__be32 hops[GLB_MAX_GUE_HOPS];
 } __attribute__((packed));
 
 struct glbgue_stats {

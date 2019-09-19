@@ -78,8 +78,6 @@ struct l4_ports_hdr {
 	sizeof(uint16_t) \
 )
 
-#define MAX_HOPS 255
-
 typedef struct {
 	// aiding simple header extraction by maintaining state
 	uint8_t linearisation_space[MAX_PARSED_HEADER_SIZE];
@@ -113,7 +111,7 @@ typedef struct {
 
 	// calculated hops
 	uint8_t hop_count;
-	uint32_t ipv4_hops[MAX_HOPS];
+	uint32_t ipv4_hops[GLB_MAX_GUE_HOPS];
 	
 	uint64_t pkt_hash;
 } glb_route_context;
