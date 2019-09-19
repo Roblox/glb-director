@@ -44,6 +44,7 @@
 #include "config.h"
 #include "glb_control_loop.h"
 #include "glb_encap_dpdk.h"
+#include "../glb-includes/glb_common_includes.h"
 #include "glb_fwd_config.h"
 #include "glb_kni.h"
 #include "glb_processor_loop.h"

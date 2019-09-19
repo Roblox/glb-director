@@ -45,6 +45,7 @@
 
 #include "bind_classifier.h"
 #include "config.h"
+#include "../glb-includes/glb_common_includes.h"
 #include "glb_fwd_config.h"
 #include "log.h"
 
