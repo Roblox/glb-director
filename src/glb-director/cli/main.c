@@ -37,25 +37,12 @@
 #include <string.h>
 
 #include "log.h"
-#include "config_types.h"
+#include "../../glb-includes/glb_common_includes.h"
+#include "../glb_consts.h"
+#include "glb_config_types.h"
 
-#define GLB_BACKEND_HEALTH_DOWN 0
-#define GLB_BACKEND_HEALTH_UP 1
-
-#define GLB_BACKEND_STATE_FILLING 0
-#define GLB_BACKEND_STATE_ACTIVE 1
-#define GLB_BACKEND_STATE_DRAINING_INACTIVE 2
-
-// http://www.iana.org/assignments/address-family-numbers/address-family-numbers.xhtml
-#define GLB_FAMILY_RESERVED 0
-#define GLB_FAMILY_IPV4 1
-#define GLB_FAMILY_IPV6 2
-
-#define GLB_IPPROTO_UDP 17
-#define GLB_IPPROTO_TCP 6
-
-#define NUM_IDXS_FOR_USE(n) ((n <= MAX_NUM_BACKEND_IDXS) ? \
-                             n : MAX_NUM_BACKEND_IDXS)
+#define NUM_IDXS_FOR_USE(n) ((n <= GLB_MAX_GUE_HOPS) ? \
+                             n : GLB_MAX_GUE_HOPS)
 
 int siphash(uint8_t *out, const uint8_t *in, uint64_t inlen, const uint8_t *k);
 
@@ -218,10 +205,10 @@ int main(int argc, char *argv[])
 					    GLB_BACKEND_STATE_FILLING;
 				} else if (!strcmp(backend_state, "draining")) {
 					entry->state =
-					    GLB_BACKEND_STATE_DRAINING_INACTIVE;
+					    GLB_BACKEND_STATE_DRAINING;
 				} else if (!strcmp(backend_state, "inactive")) {
 					entry->state =
-					    GLB_BACKEND_STATE_DRAINING_INACTIVE;
+					    GLB_BACKEND_STATE_INACTIVE;
 				} else {
 					glb_log_error_and_exit(
 					    "Bad backend state!");
@@ -363,9 +350,9 @@ int main(int argc, char *argv[])
 				free(bind_ip);
 
 				if (!strcmp(bind_proto, "tcp")) {
-					entry.ipproto = GLB_IPPROTO_TCP;
+					entry.ipproto = IPPROTO_TCP;
 				} else if (!strcmp(bind_proto, "udp")) {
-					entry.ipproto = GLB_IPPROTO_UDP;
+					entry.ipproto = IPPROTO_UDP;
 				} else {
 					glb_log_error_and_exit("Bad protocol!");
 				}
@@ -463,7 +450,7 @@ int main(int argc, char *argv[])
                 
                 if (bentry->health == GLB_BACKEND_HEALTH_UP) {//backend_healthy
                     // draining
-                    if (bentry->state == GLB_BACKEND_STATE_DRAINING_INACTIVE)
+                    if (bentry->state == GLB_BACKEND_STATE_DRAINING)
                         num_healthy_draining ++;
                     else
                         num_healthy_not_draining ++;
@@ -486,7 +473,7 @@ int main(int argc, char *argv[])
                  *    "unhealthy"": index tracked by c
                  */
                 if (bentry->health == GLB_BACKEND_HEALTH_UP) {
-                    if (bentry->state == GLB_BACKEND_STATE_DRAINING_INACTIVE) {
+                    if (bentry->state == GLB_BACKEND_STATE_DRAINING) {
                         /* healthy&draining */
                         tentry.idxs[b] = sortable_backends[i].index;
                         b++;
@@ -508,7 +495,7 @@ int main(int argc, char *argv[])
              * following will ensure that the forwarding table binary will be
              * of a fixed size
              */
-            fwrite(tentry.idxs, sizeof(uint32_t), MAX_NUM_BACKEND_IDXS, out);
+            fwrite(tentry.idxs, sizeof(uint32_t), GLB_MAX_GUE_HOPS, out);
         }
     }
 

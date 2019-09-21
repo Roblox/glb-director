@@ -3,5 +3,4 @@
 
 #define GLB_MAX_GUE_HOPS 0x10
 
-
 #endif

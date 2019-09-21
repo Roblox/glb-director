@@ -1,12 +1,8 @@
-#ifndef __CONFIG_TYPES_H__
+#ifndef __GLB_CONFIG_TYPES_H__
 
-#define __CONFIG_TYPES_H__
+#define __GLB_CONFIG_TYPES_H__
 
-#define FILE_FORMAT_VERSION 3
-#define MAX_TABLE_ENTRIES 0x10000
-#define MAX_NUM_BACKENDS 0x100
-#define MAX_NUM_BACKEND_IDXS 0x10
-#define MAX_NUM_BINDS 0x100
+typedef enum {FALSE, TRUE} boolean;
 
 typedef struct {
 	uint32_t file_fmt_ver;
@@ -15,7 +11,6 @@ typedef struct {
 	uint32_t max_num_backends;
 	uint32_t max_num_binds;
 } bin_file_header;
-
 
 typedef struct {
 	uint32_t inet_family;
@@ -53,9 +48,9 @@ typedef struct {
 
 struct table_entry_ {
     uint32_t num_idxs;    
-    uint32_t idxs[MAX_NUM_BACKEND_IDXS];
+    uint32_t idxs[GLB_MAX_GUE_HOPS];
 } __attribute__((__packed__));
 typedef struct table_entry_ table_entry;
 
 
-#endif
+#endif /* __GLB_CONFIG_TYPES_H__ */

@@ -46,6 +46,7 @@
 #include "bind_classifier.h"
 #include "config.h"
 #include "../glb-includes/glb_common_includes.h"
+#include "glb_consts.h"
 #include "glb_fwd_config.h"
 #include "log.h"
 
@@ -343,11 +344,11 @@ int check_config(struct glb_fwd_config_ctx *ctx)
 int supported_proto(int proto_num)
 {
 	switch (proto_num) {
-	case SUPPORTED_PROTOS_ICMP:
+	case IPPROTO_ICMP:
 		return 0;
-	case SUPPORTED_PROTOS_TCP:
+	case IPPROTO_TCP:
 		return 0;
-	case SUPPORTED_PROTOS_UDP:
+	case IPPROTO_UDP:
 		return 0;
 	default:
 		return 1;
